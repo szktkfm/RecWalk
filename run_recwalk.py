@@ -7,7 +7,7 @@ import numpy as np
 import scipy.sparse
 import pickle
 
-from SLIM_model import SLIM
+from SLIM.SLIM_model import SLIM
 from dataloader import AmazonDataset
 import optuna
 import time
@@ -20,28 +20,30 @@ warnings.filterwarnings('ignore')
 
 
 
-
 # ハイパラ
 # gamma
-def train_SLIM(hyparam):
-    slim_train = pd.read_csv('../data_luxury_5core/valid1/bpr/user_item_train.csv')
+def train_SLIM(hyparam, load=False):
+    slim_train = pd.read_csv('data/user_item_train_slim.csv')
     user_list = []
     item_list = []
-    with open('./data2/user_list.txt', 'r') as f:
+    with open('./data/user_list.txt', 'r') as f:
         for l in f:
             user_list.append(l.replace('\n', ''))
-    with open('./data2/item_list.txt', 'r') as f:
+    with open('./data/item_list.txt', 'r') as f:
         for l in f:
             item_list.append(l.replace('\n', ''))
 
     # ハイパラロードもっと上手く書く
     alpha = hyparam['alpha']
     l1_ratio = hyparam['l1_ratio']
-    #lin_model = hyparam['lin_model']
     slim = SLIM(alpha, l1_ratio, len(user_list), len(item_list), lin_model='elastic')
-    #slim.fit_multi(slim_train)
-    slim.load_sim_mat('./sim_mat.txt', slim_train)
-    #slim.save_sim_mat('./sim_mat.txt')
+
+    if not load:
+        slim.fit_multi(slim_train)
+        slim.save_sim_mat('sim_mat.txt')
+    else:
+        slim.load_sim_mat('sim_mat.txt', slim_train)
+
     return slim
 
 
@@ -185,10 +187,6 @@ def get_ranking_mat(G, slim, alpha, beta, dataset):
 
 
 
-# SLIMのハイパラをロードする
-slim_param = pickle.load(open('best_param_slim.pickle', 'rb'))
-# laod model
-slim = train_SLIM(slim_param)
 
 def objective(trial):
     start = time.time()
@@ -198,41 +196,45 @@ def objective(trial):
     alpha = trial.suggest_uniform('alpha', 0, 1)
     beta = trial.suggest_uniform('beta', 0, 0.5)
 
-    data_dirs = ['../data_luxury_5core/valid1/', '../data_luxury_5core/valid2/']
-    score_sum = 0
-    for data_dir in data_dirs:
-        # dataload
-        dataset = AmazonDataset(data_dir)
 
-        edges = [[r[0], r[1]] for r in dataset.triplet_df.values]
-        # user-itemとitem-userどちらの辺も追加
-        for r in dataset.triplet_df.values:
-            if r[2] == 0:
-                edges.append([r[1], r[0]])
-            
-        # load network
-        G = nx.DiGraph()
-        G.add_nodes_from([i for i in range(len(dataset.entity_list))])
-        G.add_edges_from(edges)
+    data_dirs = './data'
 
-        evaluater = Evaluater(data_dir)
-        ranking_mat = get_ranking_mat(G, slim, alpha, beta, dataset)
-        #score = evaluater.topn_precision(ranking_mat)
-        score = evaluater.topn_map(ranking_mat)
+    # dataload
+    dataset = AmazonDataset(data_dir)
 
-        score_sum += score
+    # laod model
+    slim = train_SLIM(slim_param, load=True)
+
+    # load network
+    edges = [[r[0], r[1]] for r in dataset.triplet_df.values]
+    # user-itemとitem-userどちらの辺も追加
+    for r in dataset.triplet_df.values:
+        if r[2] == 0:
+            edges.append([r[1], r[0]])
+        
+    G = nx.DiGraph()
+    G.add_nodes_from([i for i in range(len(dataset.entity_list))])
+    G.add_edges_from(edges)
+
+    ranking_mat = get_ranking_mat(G, slim, alpha, beta, dataset)
+    evaluater = Evaluater(data_dir)
+    score = evaluater.topn_map(ranking_mat)
     
     mi, sec = time_since(time.time() - start)
     print('{}m{}s'.format(mi, sec))
     
-    return -1 * score_sum / 2
+    return -1 * score
 
 def time_since(runtime):
     mi = int(runtime / 60)
     sec = int(runtime - mi * 60)
     return (mi, sec)
 
+
 if __name__ == '__main__':
+    # SLIMのハイパラをロードする
+    slim_param = pickle.load(open('best_param_slim.pickle', 'rb'))
+    slim = train_SLIM(slim_param)
 
     study = optuna.create_study()
     study.optimize(objective, n_trials=20)
