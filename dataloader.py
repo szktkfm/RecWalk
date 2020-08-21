@@ -25,7 +25,7 @@ class AmazonDataset:
     def load_triplet(self):
         self.user_item_test_df = pd.read_csv(self.data_dir + 'user_item_test.csv')
         self.triplet_df = pd.read_csv(self.data_dir + 'triplet.csv')
-        self.nega_triplet_df = pd.read_csv(self.data_dir + 'nega_triplet.csv')
+        #self.nega_triplet_df = pd.read_csv(self.data_dir + 'nega_triplet.csv')
 
         self.user_list = []
         self.item_list = []
@@ -51,7 +51,7 @@ class AmazonDataset:
         self.item_idx = [self.entity_list.index(i) for i in self.item_list]
         self.brand_idx = [self.entity_list.index(b) for b in self.brand_list]
 
-        self.y_train = np.loadtxt(self.data_dir + 'y_train.txt')
+        #self.y_train = np.loadtxt(self.data_dir + 'y_train.txt')
                 
                 
     def load_user_items_dict(self):

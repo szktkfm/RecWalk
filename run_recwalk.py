@@ -19,7 +19,6 @@ warnings.filterwarnings('ignore')
 
 
 
-
 # ハイパラ
 # gamma
 def train_SLIM(hyparam, load=False):
@@ -152,16 +151,8 @@ def item_ppr(G, sim_mat, user, alpha, beta, dataset):
     val[user] = 1
     k = [i for i in range(len(G.nodes()))]
     personal_vec = dict(zip(k, val))
-    #print(personal_vec)
-    #ppr = pagerank_scipy(G, sim_mat, alpha, beta, personalization=personal_vec)
+    ppr = pagerank_scipy(G, sim_mat, alpha, beta, personalization=personal_vec)
     #return pr
-    
-    # random 後で消す
-    # val = np.random.dirichlet([1 for i in range(len(G.nodes))], 1)[0]
-    val = np.random.rand(len(G.nodes()))
-    val /= val.sum()
-    k = [i for i in range(len(G.nodes))]
-    ppr = dict(zip(k, val))
     
     pred = []
     for i in dataset.item_idx:
@@ -186,8 +177,6 @@ def get_ranking_mat(G, slim, alpha, beta, dataset):
     return ranking_mat
 
 
-
-
 def objective(trial):
     start = time.time()
     # ハイパラ読み込み
@@ -196,8 +185,7 @@ def objective(trial):
     alpha = trial.suggest_uniform('alpha', 0, 1)
     beta = trial.suggest_uniform('beta', 0, 0.5)
 
-
-    data_dirs = './data'
+    data_dir = './data/'
 
     # dataload
     dataset = AmazonDataset(data_dir)
